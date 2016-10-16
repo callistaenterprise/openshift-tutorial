@@ -1,0 +1,34 @@
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: quotes-v2
+  labels:
+    app: quotes
+    version: "2"
+    tier: backend
+spec:
+  replicas: 2
+  selector:
+    app: quotes
+    version: "2"
+  template:
+    metadata:
+      labels:
+        app: quotes
+        version: "2"
+        tier: backend
+    spec:
+      containers:
+      - name: quotes
+#       FOR DEPLOY FROM DOCKERHUB
+#        image: quotes:2
+        image: magnuslarsson/quotes:2
+        ports:
+        - name: http
+          containerPort: 9090
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 9090
+          initialDelaySeconds: 10
+          timeoutSeconds: 1
