@@ -2,7 +2,7 @@
 
 This tutorial shows how you can get started with [OpenShift Origin v1.3](https://www.openshift.org) in a Vagrant box.  The tutorial tries to use the native Kubernetes CLI, `kubectl`, as much as possible. When required the OpenShift CLI, `oc`, is used.
 
-The tutorial is based on a [Kubernetes tutorial](https://github.com/callistaenterprise/k8s-tutorial), where a backend service, `quotes`, and a frontend web app, `portal`, is deployed in Kubernetes. 
+The tutorial is based on a [Kubernetes tutorial](https://github.com/callistaenterprise/k8s-tutorial), where a backend service, `quotes`, serves a frontend web app, `portal`, with quotes in different languages. 
 
 To simplify this tutorial the Docker images for both `quotes` and `portal` have already been created and pushed to DockerHub, see [quotes](https://hub.docker.com/r/magnuslarsson/quotes/) and [portal](https://hub.docker.com/r/magnuslarsson/portal/)  on DockerHub.
 
@@ -121,9 +121,13 @@ Clone the git repo from github:
 	
 ## Create a backend service based on quotes:1
 
-Deploy 
+[comment]: # (<strong style="color:red">TBS: Deploy the quores service with two pods:</strong>)
+
+Use the following command to create a replication controller that ensure that we always have two `quotes` pods up and running:
 
 	kubectl create -f openshift-tutorial/quotes/quotes-controller-v1.yaml
+
+View the status of the pods:
 
 	kubectl get pods
 	> NAME           READY     STATUS    RESTARTS   AGE
@@ -164,8 +168,8 @@ Create a service with a cluster global port:
 [comment]: # (or:)
 [comment]: # ( )
 	
-We can now use the cluster wide port to access the service:  
-(using portforwarding in Vagrant for simplified access directly from the local environment)
+Now we can use the cluster wide port to access the service:  
+(using the port forwarding setup in Vagrant above)
 
 	curl localhost:30090/quote?language=en
 	> {"quote":"Champagne should be cold, dry and free","language":"en"}
@@ -177,7 +181,7 @@ Create pod, controller and service for the web app:
 	kubectl create -f openshift-tutorial/portal/portal-controller-v1.yaml
 	kubectl create -f openshift-tutorial/portal/portal-service.yaml
 
-Try the web app with curl or in a browser.
+Try the web app with curl or in a web browser.
 
 With curl: 	
 
@@ -200,24 +204,28 @@ With a web browser [http://localhost:30080/home](http://localhost:30080/home):
 
 ## Rolling upgrade of the service to quotes:2
 
-The deployed service have a problem, it doesn't handle the language parameter correctly.
+The deployed service have a problem, the portal ask the service for quotes in Swedish but gets them in English as seen in the examples above.
 
-Try ask for a quote in Swedish:
+Use curl to ask for a quote in Swedish:
  	
 	curl localhost:30090/quote?language=sv
 	> {"quote":"You, too, Brutus?","language":"sv"}
 
-...and you will still get one in English :-(
+...and you will get it in English :-(
 
-Version 2 of the quote service fix this problem :-)
+Version 2 of the quotes service, however, fix this problem :-)
 
-To be able to notice the rolling upgrade start the following script in a nother temrinal windows (but in the samt folder):
+So we need to upgrade to the v2 of the quotes service!
+
+We want to do this upgrade without any downtime, i.e. performing a *rolling upgrade* where the application is operational during the upgrade of the backend service with no noticable downtime!
+
+To be able to verify that the rolling upgrade works, start the following script in another terminal windows (but in the same directory):
 
 	./openshift-tutorial/scripts/get-portal-home.sh
 
-Pay attention to how the faulty english quotes are started to partly be exchanged to swedish to finaly only display swedish quotes. Also note how the upgrade will be performed without any interruption!
+Pay attention to how the faulty English quotes are started to partly be exchanged to Swedish and finaly only quotes in Swedish are displayed. Also note how the upgrade is performed without any interruption!
 
-Perform the rolling upgrade:
+Initiate the rolling upgrade:
 	
 	kubectl rolling-update quotes -f openshift-tutorial/quotes/quotes-controller-v2.yaml --update-period=10s
 	> Created quotes-v2
@@ -229,15 +237,15 @@ Perform the rolling upgrade:
 	> Update succeeded. Deleting quotes
 	> replicationcontroller "quotes" rolling updated to "quotes-v2"
 
-The output from the should look something like:
+The output from the script should look something like:
 
-  1. First only enlish quotes:
+  1. First quotes only in English:
 	
 	    <p>Dagens citat: Champagne should be cold, dry and free</p>
 	    <p>Dagens citat: To be or not to be</p>
 	    <p>Dagens citat: You, too, Brutus?</p>
 
-  1. Next mixed quotes in both english and swedish:
+  1. Next mixed quotes in both English and Swedish:
 
 	    <p>Dagens citat: Att vara eller inte vara</p>
 	    <p>Dagens citat: To be or not to be</p>
@@ -249,7 +257,7 @@ The output from the should look something like:
 	    <p>Dagens citat: Champagne skall vara kall, torr och gratis</p>
 	    <p>Dagens citat: You, too, Brutus?</p>
 
-  1. Finally only quotes in swedish:
+  1. Finally only quotes in Swedish:
 
 	    <p>Dagens citat: Även du, min Brutus?</p>
 	    <p>Dagens citat: Champagne skall vara kall, torr och gratis</p>
@@ -257,13 +265,17 @@ The output from the should look something like:
 	    <p>Dagens citat: Att vara eller inte vara</p>
 
 
-Also verify in the web browser that the quotes now are in swedish, [http://localhost:30080/home](http://localhost:30080/home):
+Also verify in the web browser that the quotes now are in Swedish, [http://localhost:30080/home](http://localhost:30080/home):
 
 ![web_app.png](images/web_app_sv.png)
 	
+In the Web Console, [https://10.2.2.2:8443/console/project/quotes-project/overview](https://10.2.2.2:8443/console/project/quotes-project/overview), we can now see the deployed application:
+
+![console-login.png](images/console-deployed.png)
+
 We are done!
 
-If you want to you can delete everything you deployed in OpenShift with:
+**Note:** If you want to, you can delete everything you deployed in OpenShift with:
 
 	oc delete project quotes-project
 
